@@ -28,7 +28,8 @@ func Es7() {
 	es7CreateIndex()
 	es7CreateDocument()
 	es7CheckIndex()
-	es7SimpleSearch()
+	//es7SimpleSearch()
+	es7SearchByTags()
 }
 
 const (
@@ -167,20 +168,21 @@ func es7CreateIndex() {
 	log.Println("Index created successfully:", IndexName)
 }
 
+// _id 一样支持更新
 func es7CreateDocument() {
 	data := []Character{
 		{
 			Id:           "character_1",
 			Tags:         []string{"game", "anime", "hero"},
 			Name:         "hello world",
-			Introduction: "this is a test work",
+			Introduction: "this is a test work11111",
 			Greeting:     "nothing",
 		},
 		{
 			Id:           "character_2",
 			Tags:         []string{"elf", "gay", "game"},
 			Name:         "hello work",
-			Introduction: "this is a test world",
+			Introduction: "this is a test world22222",
 			Greeting:     "nothing",
 		},
 	}
@@ -279,6 +281,66 @@ func es7SimpleSearch() {
 	var r map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
 		log.Fatalf("Error parsing the response body: %s", err)
+	}
+
+	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
+	for _, hit := range hits {
+		source := hit.(map[string]interface{})["_source"]
+		log.Println("Hit:", source)
+	}
+}
+
+// 搜索by tags
+func es7SearchByTags() {
+	//searchRequest := map[string]interface{}{
+	//	"query": map[string]interface{}{
+	//		"match": map[string]interface{}{
+	//			"Tags": "game",
+	//		},
+	//	},
+	//}
+	searchRequest := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []map[string]interface{}{
+					{
+						"term": map[string]interface{}{
+							"Tags": "game",
+						},
+					},
+					{
+						"term": map[string]interface{}{
+							"Tags": "gay",
+						},
+					},
+				},
+			},
+		},
+	}
+	searchJSON, err := json.Marshal(searchRequest)
+	if err != nil {
+		log.Fatalf("Error marshalling search request: %s", err)
+	}
+
+	// 发送搜索请求
+	res, err := es7.Search(
+		es7.Search.WithContext(context.Background()),
+		es7.Search.WithIndex(IndexName),
+		es7.Search.WithBody(strings.NewReader(string(searchJSON))),
+		es7.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		log.Fatalf("Error searching data: %s", err)
+	}
+	defer res.Body.Close()
+
+	var r map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		log.Fatalf("Error parsing the response body: %s", err)
+	}
+
+	if res.IsError() {
+		log.Fatalf("Error: %s", res.Status())
 	}
 
 	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
