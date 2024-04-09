@@ -27,11 +27,12 @@ func Es8() {
 	}
 	//es8DeleteIndex(Es8IndexName)
 	//es8CreateIndex(Es8IndexName)
-	//es8CreateDocument(Es8IndexName)
+	es8CreateDocument(Es8IndexName)
 	//es8CheckIndex(Es8IndexName)
 	//es8SimpleSearch(Es8IndexName)
 	//es8SearchByTags(Es8IndexName)
-	es8SearchSortable(Es8IndexName)
+	searchAfter := es8SearchSortable(Es8IndexName, nil)
+	es8SearchSortable(Es8IndexName, searchAfter)
 }
 
 const (
@@ -330,8 +331,9 @@ func es8SearchByTags(indexName string) {
 }
 
 // 搜索by tags
-func es8SearchSortable(indexName string) {
+func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 	searchRequest := map[string]interface{}{
+		"size": 1,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
 				"must": []map[string]interface{}{
@@ -356,6 +358,11 @@ func es8SearchSortable(indexName string) {
 			},
 		},
 	}
+
+	if searchAfter != nil {
+		searchRequest["search_after"] = searchAfter
+	}
+
 	searchJSON, err := json.Marshal(searchRequest)
 	if err != nil {
 		log.Fatalf("Error marshalling search request: %s", err)
@@ -386,7 +393,9 @@ func es8SearchSortable(indexName string) {
 	for _, hit := range hits {
 		source := hit.(map[string]interface{})["_source"]
 		log.Println("Hit:", source)
+		searchAfter = hit.(map[string]interface{})["sort"]
 	}
+	return searchAfter
 }
 
 func es8CheckIndex(indexName string) {
