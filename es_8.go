@@ -25,12 +25,13 @@ func Es8() {
 	if err != nil {
 		log.Fatalf("Error creating the Elasticsearch client: %s", err)
 	}
-	es8DeleteIndex(Es8IndexName)
-	es8CreateIndex(Es8IndexName)
-	es8CreateDocument(Es8IndexName)
-	es8CheckIndex(Es8IndexName)
-	es8SimpleSearch(Es8IndexName)
-	es8SearchByTags(Es8IndexName)
+	//es8DeleteIndex(Es8IndexName)
+	//es8CreateIndex(Es8IndexName)
+	//es8CreateDocument(Es8IndexName)
+	//es8CheckIndex(Es8IndexName)
+	//es8SimpleSearch(Es8IndexName)
+	//es8SearchByTags(Es8IndexName)
+	es8SearchSortable(Es8IndexName)
 }
 
 const (
@@ -99,6 +100,10 @@ func es8CreateIndex(indexName string) {
 					"type": "date",
 					//"format": "yyyy-MM-dd HH:mm:ss",
 				},
+				"TagPopularity": map[string]interface{}{
+					"type": "long",
+					//"format": "yyyy-MM-dd HH:mm:ss",
+				},
 			},
 		},
 	}
@@ -140,22 +145,24 @@ func es8CreateIndex(indexName string) {
 func es8CreateDocument(indexName string) {
 	data := []Character{
 		{
-			Id:           "character_1",
-			Tags:         []string{"game", "anime", "hero"},
-			Name:         "hello world",
-			Introduction: "this is a test work11111",
-			Greeting:     "nothing",
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			Id:            "character_1",
+			Tags:          []string{"game", "anime", "hero"},
+			Name:          "hello world",
+			Introduction:  "this is a test work11111",
+			Greeting:      "nothing",
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+			TagPopularity: 100,
 		},
 		{
-			Id:           "character_2",
-			Tags:         []string{"elf", "gay", "game"},
-			Name:         "hello work",
-			Introduction: "this is a test world22222",
-			Greeting:     "nothing",
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			Id:            "character_2",
+			Tags:          []string{"elf", "gay", "game"},
+			Name:          "hello work",
+			Introduction:  "this is a test world22222",
+			Greeting:      "nothing",
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+			TagPopularity: 500,
 		},
 	}
 
@@ -294,6 +301,66 @@ func es8SearchByTags(indexName string) {
 		log.Fatalf("Error marshalling search request: %s", err)
 	}
 
+	// 发送搜索请求
+	res, err := es8.Search(
+		es8.Search.WithContext(context.Background()),
+		es8.Search.WithIndex(indexName),
+		es8.Search.WithBody(strings.NewReader(string(searchJSON))),
+		es8.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		log.Fatalf("Error searching data: %s", err)
+	}
+	defer res.Body.Close()
+
+	var r map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		log.Fatalf("Error parsing the response body: %s", err)
+	}
+
+	if res.IsError() {
+		log.Fatalf("Error: %s", res.Status())
+	}
+
+	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
+	for _, hit := range hits {
+		source := hit.(map[string]interface{})["_source"]
+		log.Println("Hit:", source)
+	}
+}
+
+// 搜索by tags
+func es8SearchSortable(indexName string) {
+	searchRequest := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []map[string]interface{}{
+					{
+						"term": map[string]interface{}{
+							"Tags": "game",
+						},
+					},
+					//{
+					//	"term": map[string]interface{}{
+					//		"Tags": "gay",
+					//	},
+					//},
+				},
+			},
+		},
+		"sort": []interface{}{
+			map[string]interface{}{
+				"TagPopularity": map[string]interface{}{
+					"order": "asc",
+				},
+			},
+		},
+	}
+	searchJSON, err := json.Marshal(searchRequest)
+	if err != nil {
+		log.Fatalf("Error marshalling search request: %s", err)
+	}
+	log.Println(string(searchJSON))
 	// 发送搜索请求
 	res, err := es8.Search(
 		es8.Search.WithContext(context.Background()),
