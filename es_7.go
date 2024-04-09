@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var es7 *elasticsearch.Client
@@ -28,7 +29,7 @@ func Es7() {
 	es7CreateIndex()
 	es7CreateDocument()
 	es7CheckIndex()
-	//es7SimpleSearch()
+	es7SimpleSearch()
 	es7SearchByTags()
 }
 
@@ -131,6 +132,14 @@ func es7CreateIndex() {
 				"Greeting": map[string]interface{}{
 					"type": "text",
 				},
+				"CreatedAt": map[string]interface{}{
+					"type": "date",
+					//"format": "yyyy-MM-dd HH:mm:ss", //default : "strict_date_optional_time||epoch_millis"
+				},
+				"UpdatedAt": map[string]interface{}{
+					"type": "date",
+					//"format": "yyyy-MM-dd HH:mm:ss",
+				},
 			},
 		},
 	}
@@ -177,6 +186,8 @@ func es7CreateDocument() {
 			Name:         "hello world",
 			Introduction: "this is a test work11111",
 			Greeting:     "nothing",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
 			Id:           "character_2",
@@ -184,6 +195,8 @@ func es7CreateDocument() {
 			Name:         "hello work",
 			Introduction: "this is a test world22222",
 			Greeting:     "nothing",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 	}
 
