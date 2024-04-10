@@ -25,7 +25,16 @@ func Es8() {
 	if err != nil {
 		log.Fatalf("Error creating the Elasticsearch client: %s", err)
 	}
-	//es8DeleteIndex(Es8IndexName)
+	info, err := es8.Indices.Get([]string{"_all"})
+	if err != nil {
+		panic(err)
+	}
+	data, err := ReadDataParseJson[map[string]interface{}](info.Body)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("%+v", data)
+	es8DeleteIndex(Es8IndexName)
 	//es8CreateIndex(Es8IndexName)
 	es8CreateDocument(Es8IndexName)
 	//es8CheckIndex(Es8IndexName)
@@ -44,6 +53,12 @@ func es8CheckIndexExists(indexName string) bool {
 	if err != nil {
 		log.Fatalf("Error Delete Exists request: %s", err)
 	}
+	data, err := ReadDataParseJson[CreateIndexResponse](exists.Body)
+	if err != nil {
+		log.Printf("index %s not exists\n", indexName)
+	}
+	log.Printf("index %+v not exists\n", data)
+
 	if exists.IsError() {
 		// 索引不存在
 		if exists.StatusCode == http.StatusNotFound {
@@ -66,11 +81,11 @@ func es8DeleteIndex(indexName string) {
 	}
 	defer response.Body.Close()
 
+	all, err := io.ReadAll(response.Body)
+	if err == nil {
+		log.Println(string(all))
+	}
 	if response.IsError() {
-		all, err := io.ReadAll(response.Body)
-		if err == nil {
-			log.Println(string(all))
-		}
 		log.Fatalf("Error: %s", response.Status())
 	}
 
@@ -79,6 +94,16 @@ func es8DeleteIndex(indexName string) {
 
 func es8CreateIndex(indexName string) {
 	createIndexRequest := map[string]interface{}{
+		"settings": map[string]interface{}{
+			"index": map[string]interface{}{
+				"sort.field": []string{
+					"TagPopularity", "CreatedAt", "UpdatedAt",
+				},
+				"sort.order": []string{
+					"desc", "asc", "desc",
+				},
+			},
+		},
 		"mappings": map[string]interface{}{
 			"properties": map[string]interface{}{
 				"Tags": map[string]interface{}{
@@ -102,6 +127,10 @@ func es8CreateIndex(indexName string) {
 					//"format": "yyyy-MM-dd HH:mm:ss",
 				},
 				"TagPopularity": map[string]interface{}{
+					"type": "long",
+					//"format": "yyyy-MM-dd HH:mm:ss",
+				},
+				"Gender": map[string]interface{}{
 					"type": "long",
 					//"format": "yyyy-MM-dd HH:mm:ss",
 				},
@@ -154,6 +183,7 @@ func es8CreateDocument(indexName string) {
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 			TagPopularity: 100,
+			Gender:        1,
 		},
 		{
 			Id:            "character_2",
@@ -164,6 +194,29 @@ func es8CreateDocument(indexName string) {
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 			TagPopularity: 500,
+			Gender:        2,
+		},
+		{
+			Id:            "character_3",
+			Tags:          []string{"elf", "feboy", "game"},
+			Name:          "hello work",
+			Introduction:  "this is a test world22222",
+			Greeting:      "nothing",
+			CreatedAt:     time.Now().AddDate(0, 0, 1),
+			UpdatedAt:     time.Now().AddDate(0, 0, 1),
+			TagPopularity: 100,
+			Gender:        3,
+		},
+		{
+			Id:            "character_4",
+			Tags:          []string{"elf", "oc", "game"},
+			Name:          "hello work",
+			Introduction:  "this is a test world22222",
+			Greeting:      "nothing",
+			CreatedAt:     time.Now().AddDate(0, 0, 1),
+			UpdatedAt:     time.Now().AddDate(0, 0, 1),
+			TagPopularity: 500,
+			Gender:        4,
 		},
 	}
 
@@ -214,7 +267,7 @@ func es8CreateDocument(indexName string) {
 	}
 	defer response.Body.Close()
 	all, err := io.ReadAll(response.Body)
-	var respBody *CreateIndexResponse
+	var respBody *BulkDataResponse
 	if err == nil {
 		err := json.Unmarshal(all, &respBody)
 		if err != nil {
@@ -333,7 +386,7 @@ func es8SearchByTags(indexName string) {
 // 搜索by tags
 func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 	searchRequest := map[string]interface{}{
-		"size": 1,
+		"size": 2,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
 				"must": []map[string]interface{}{
@@ -353,6 +406,9 @@ func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 		"sort": []interface{}{
 			map[string]interface{}{
 				"TagPopularity": map[string]interface{}{
+					"order": "asc",
+				},
+				"UpdatedAt": map[string]interface{}{
 					"order": "asc",
 				},
 			},
@@ -437,4 +493,16 @@ func es8CheckIndex(indexName string) {
 		}
 	}
 	log.Printf("create Index: %+v", respBody1)
+}
+
+func ReadDataParseJson[M any](reader io.Reader) (data *M, err error) {
+	all, err := io.ReadAll(reader)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(all, &data)
+	if err != nil {
+		return
+	}
+	return
 }

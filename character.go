@@ -11,4 +11,5 @@ type Character struct {
 	CreatedAt     time.Time `json:"CreatedAt" es:"date" comment:""`
 	UpdatedAt     time.Time `json:"UpdatedAt" es:"date" comment:""`
 	TagPopularity int64     `json:"TagPopularity" es:"long" comment:"Tag 获取  排序使用"`
+	Gender        int64     `json:"Gender" es:"long" comment:"Tag 获取  排序使用"`
 }

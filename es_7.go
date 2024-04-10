@@ -25,12 +25,12 @@ func Es7() {
 	if err != nil {
 		log.Fatalf("Error creating the Elasticsearch client: %s", err)
 	}
-	//es7DeleteIndex()
-	es7CreateIndex()
-	es7CreateDocument()
-	es7CheckIndex()
-	es7SimpleSearch()
-	es7SearchByTags()
+	es7DeleteIndex()
+	//es7CreateIndex()
+	//es7CreateDocument()
+	//es7CheckIndex()
+	//es7SimpleSearch()
+	//es7SearchByTags()
 }
 
 const (
