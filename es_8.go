@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -34,18 +35,21 @@ func Es8() {
 		panic(err)
 	}
 	log.Printf("%+v", data)
-	es8DeleteIndex(Es8IndexName)
+	//es8DeleteIndex(Es8IndexName)
 	//es8CreateIndex(Es8IndexName)
-	es8CreateDocument(Es8IndexName)
+	//es8CreateDocument(Es8IndexName)
 	//es8CheckIndex(Es8IndexName)
 	//es8SimpleSearch(Es8IndexName)
 	//es8SearchByTags(Es8IndexName)
 	searchAfter := es8SearchSortable(Es8IndexName, nil)
 	es8SearchSortable(Es8IndexName, searchAfter)
+
+	//es8SearchFuzzy(Es8IndexName)
+
 }
 
 const (
-	Es8IndexName = "character"
+	Es8IndexName = "character_v1"
 )
 
 func es8CheckIndexExists(indexName string) bool {
@@ -282,6 +286,53 @@ func es8CreateDocument(indexName string) {
 	log.Println("Data document successfully")
 }
 
+func es8SearchFuzzy(indexName string) {
+	//searchRequest := map[string]interface{}{
+	//	"query": map[string]interface{}{
+	//		"match_bool_prefix": map[string]interface{}{
+	//			"Name": "hello ow",
+	//		},
+	//	},
+	//}
+	searchRequest := map[string]interface{}{
+		"query": map[string]interface{}{
+			"match_phrase_prefix": map[string]interface{}{
+				"Name": "hello ev",
+			},
+		},
+	}
+
+	searchJSON, err := json.Marshal(searchRequest)
+	if err != nil {
+		log.Fatalf("Error marshalling search request: %s", err)
+	}
+	// 发送搜索请求
+	res, err := es8.Search(
+		es8.Search.WithContext(context.Background()),
+		es8.Search.WithIndex(indexName),
+		es8.Search.WithBody(strings.NewReader(string(searchJSON))),
+		es8.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		log.Fatalf("Error searching data: %s", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		log.Fatalf("Error: %s", res.Status())
+	}
+
+	var r map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		log.Fatalf("Error parsing the response body: %s", err)
+	}
+
+	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
+	for _, hit := range hits {
+		source := hit.(map[string]interface{})["_source"]
+		log.Println("Hit:", source)
+	}
+}
 func es8SimpleSearch(indexName string) {
 	// 准备搜索请求
 	searchRequest := map[string]interface{}{
@@ -389,17 +440,29 @@ func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 		"size": 2,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{
+				//"must": []map[string]interface{}{
+				//	{
+				//		"match": map[string]interface{}{
+				//			"Name": "hell",
+				//		},
+				//	},
+				//	{
+				//		"term": map[string]interface{}{
+				//			"Tags": "game",
+				//		},
+				//	},
+				//	//{
+				//	//	"term": map[string]interface{}{
+				//	//		"Tags": "gay",
+				//	//	},
+				//	//},
+				//},
+				"filter": []map[string]interface{}{
 					{
 						"term": map[string]interface{}{
 							"Tags": "game",
 						},
 					},
-					//{
-					//	"term": map[string]interface{}{
-					//		"Tags": "gay",
-					//	},
-					//},
 				},
 			},
 		},
@@ -413,6 +476,7 @@ func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 				},
 			},
 		},
+		"_source": []string{"Name", "Tags"}, //
 	}
 
 	if searchAfter != nil {
@@ -436,20 +500,25 @@ func es8SearchSortable(indexName string, searchAfter interface{}) interface{} {
 	}
 	defer res.Body.Close()
 
-	var r map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+	//all, err := io.ReadAll(res.Body)
+	//log.Printf("%s", string(all))
+	var resp SearchResponse[Character]
+	all, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalf("Error ReadAll the response body: %s", err)
+	}
+	if err := json.NewDecoder(bytes.NewReader(all)).Decode(&resp); err != nil {
 		log.Fatalf("Error parsing the response body: %s", err)
 	}
 
 	if res.IsError() {
 		log.Fatalf("Error: %s", res.Status())
 	}
-
-	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
+	hits := resp.Hits.Hits
 	for _, hit := range hits {
-		source := hit.(map[string]interface{})["_source"]
+		source := hit.Source
 		log.Println("Hit:", source)
-		searchAfter = hit.(map[string]interface{})["sort"]
+		searchAfter = hit.Sort
 	}
 	return searchAfter
 }

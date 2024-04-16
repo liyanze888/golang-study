@@ -46,3 +46,36 @@ type BulkDataShards struct {
 	Successful int `json:"successful"`
 	Failed     int `json:"failed"`
 }
+
+type SearchShards struct {
+	Total      int `json:"total"`
+	Successful int `json:"successful"`
+	Skipped    int `json:"skipped"`
+	Failed     int `json:"failed"`
+}
+
+type SearchTotal struct {
+	Value    int    `json:"value"`
+	Relation string `json:"relation"`
+}
+
+type SearchHitsPayload[M any] struct {
+	Index  string        `json:"_index"`
+	Id     string        `json:"_id"`
+	Score  interface{}   `json:"_score"`
+	Source M             `json:"_source"`
+	Sort   []interface{} `json:"sort"`
+}
+
+type SearchHitsDto[M any] struct {
+	Total    SearchTotal            `json:"total"`
+	MaxScore interface{}            `json:"max_score"`
+	Hits     []SearchHitsPayload[M] `json:"hits"`
+}
+
+type SearchResponse[M any] struct {
+	Took     int              `json:"took"`
+	TimedOut bool             `json:"timed_out"`
+	Shards   SearchShards     `json:"_shards"`
+	Hits     SearchHitsDto[M] `json:"hits"`
+}
