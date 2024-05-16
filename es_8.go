@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"io"
 	"log"
@@ -35,21 +36,22 @@ func Es8() {
 		panic(err)
 	}
 	log.Printf("%+v", data)
-	//es8DeleteIndex(Es8IndexName)
+	es8DeleteIndex(Es8IndexName)
 	//es8CreateIndex(Es8IndexName)
 	//es8CreateDocument(Es8IndexName)
 	//es8CheckIndex(Es8IndexName)
 	//es8SimpleSearch(Es8IndexName)
 	//es8SearchByTags(Es8IndexName)
-	searchAfter := es8SearchSortable(Es8IndexName, nil)
-	es8SearchSortable(Es8IndexName, searchAfter)
-
+	//searchAfter := es8SearchSortable(Es8IndexName, nil)
+	//es8SearchSortable(Es8IndexName, searchAfter)
+	//es8SearchDeleteDocument(Es8IndexName)
 	//es8SearchFuzzy(Es8IndexName)
 
 }
 
 const (
-	Es8IndexName = "character_v1"
+	//Es8IndexName = "character_1"
+	Es8IndexName = "user_1"
 )
 
 func es8CheckIndexExists(indexName string) bool {
@@ -287,6 +289,11 @@ func es8CreateDocument(indexName string) {
 }
 
 func es8SearchFuzzy(indexName string) {
+	now := time.Now()
+	defer func() {
+		log.Printf("es8SearchFuzzy use time: %v", time.Since(now))
+	}()
+	// 创建搜索请求
 	//searchRequest := map[string]interface{}{
 	//	"query": map[string]interface{}{
 	//		"match_bool_prefix": map[string]interface{}{
@@ -294,12 +301,19 @@ func es8SearchFuzzy(indexName string) {
 	//		},
 	//	},
 	//}
+	//searchRequest := map[string]interface{}{
+	//	"query": map[string]interface{}{
+	//		"match_phrase_prefix": map[string]interface{}{
+	//			"Introduction": "hel",
+	//		},
+	//	},
+	//	//"_source": []string{""},
+	//}
 	searchRequest := map[string]interface{}{
 		"query": map[string]interface{}{
-			"match_phrase_prefix": map[string]interface{}{
-				"Name": "hello ev",
-			},
+			"match_all": map[string]interface{}{},
 		},
+		//"_source": []string{""},
 	}
 
 	searchJSON, err := json.Marshal(searchRequest)
@@ -330,7 +344,7 @@ func es8SearchFuzzy(indexName string) {
 	hits := r["hits"].(map[string]interface{})["hits"].([]interface{})
 	for _, hit := range hits {
 		source := hit.(map[string]interface{})["_source"]
-		log.Println("Hit:", source)
+		log.Println("Hit:", source, "id", hit.(map[string]interface{})["_id"])
 	}
 }
 func es8SimpleSearch(indexName string) {
@@ -374,6 +388,23 @@ func es8SimpleSearch(indexName string) {
 	}
 }
 
+func es8SearchDeleteDocument(indexName string) {
+	res, err := es8.Delete(indexName, fmt.Sprintf("3"), es8.Delete.WithContext(context.Background()))
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+
+	var r map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		log.Fatalf("Error parsing the response body: %s", err)
+	}
+
+	if res.IsError() {
+		log.Fatalf("Error: %s", res.Status())
+	}
+}
+
 // 搜索by tags
 func es8SearchByTags(indexName string) {
 	//searchRequest := map[string]interface{}{
@@ -392,9 +423,19 @@ func es8SearchByTags(indexName string) {
 							"Tags": "game",
 						},
 					},
+					//{
+					//	"term": map[string]interface{}{
+					//		"Tags": "gay",
+					//	},
+					//},
+				},
+				"filter": []map[string]interface{}{
 					{
-						"term": map[string]interface{}{
-							"Tags": "gay",
+						"range": map[string]interface{}{
+							"CreatedAt": map[string]interface{}{
+								"gte": "2023-12-12T00:00:00Z",
+								"lt":  "2024-02-01T00:00:00Z",
+							},
 						},
 					},
 				},
